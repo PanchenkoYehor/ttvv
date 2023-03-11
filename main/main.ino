@@ -1,5 +1,9 @@
 #include <Wire.h>     //needed because DS3231 uses I2C Bus
 #include <RTClib.h>
+#include <LiquidCrystal.h>
+
+const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 RTC_DS3231 rtc;     //the object rtc is created from the class RTC_DS3231
 char daysOfTheWeek[7][4] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -14,11 +18,28 @@ long last_notification = 0;
 long interval_notification = 20 * 1000;
 int led = 0;
 
+enum Prescalers {
+	    PRESCALER_1 = 1, PRESCALER_8 = 2, PRESCALER_64 = 3, PRESCALER_256 = 4, PRESCALER_1024 = 5
+	};
+
 void setup() {
-  pinMode(11, OUTPUT);
+  lcd.begin(16, 2);
+  // lcd.print("First line");
+
+  // uint8_t prescaler = PRESCALER_1024;
+	// uint16_t topValue = 65535;
+  pinMode(8, OUTPUT);
+  pinMode(9, OUTPUT);
   pinMode(10, OUTPUT);
+
+  pinMode(6, INPUT_PULLUP);
+  pinMode(7, INPUT_PULLUP);
+  // TCCR1A = 0x40;          // Инвертирование пина 9 по сравнению
+  // TCCR1B = 0x08 | prescaler;  // Установить СТС режим и делитель частоты
+  // OCR1A = topValue;       // установить TOP равным topValue
   Serial.begin(9600);
   rtc.begin();
+    // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));//auto update from computer time
 }
 
 float lerp(float a, float b, float x) { 
@@ -50,9 +71,50 @@ unsigned long to_beat = 0;
 unsigned long beat_duration = 3000; 
 unsigned long beat_pulsation = 5;
 
+void printFirstLine(byte bcdHours, byte bcdMinutes, byte bcdSeconds) {
+  lcd.clear();
+  lcd.print(bcdHours >> 4);
+  lcd.print(bcdHours & 0x0F);
+  lcd.print(':');
+  lcd.print(bcdMinutes >> 4);
+  lcd.print(bcdMinutes & 0x0F);
+  lcd.print(':');
+  lcd.print(bcdSeconds >> 4);
+  lcd.print(bcdSeconds & 0x0F);
+}
+
+void printSecondLine(int sector) {
+  lcd.setCursor(0,1);
+  lcd.print("Sector = ");
+  lcd.print(sector);
+}
+
 
 void loop() {
+  // return;
   unsigned long currentMillis = millis();
+
+  // Serial.println(currentMillis);
+  // Serial.print(" ");
+  // {
+  //   ledState = 1 - ledState;
+  //   digitalWrite(8, ledState);
+  //   digitalWrite(9, 1 - ledState);
+  //   return;
+  // }
+  Serial.print(digitalRead(6));
+  Serial.print(" ");
+  Serial.print(digitalRead(6));
+  Serial.print(" ");
+
+  if (digitalRead(6) == digitalRead(7)) {
+    digitalWrite(10, LOW);
+  } else {
+    digitalWrite(10, HIGH);
+  }
+  // lcd.clear();
+  // lcd.print("First line");
+  // return;
   if (currentMillis - last_asked >= interval_ask) {
     last_asked = currentMillis;
     DateTime nowTime = rtc.now();
@@ -61,8 +123,25 @@ void loop() {
     Wire.endTransmission();
     Wire.requestFrom(deviceAddress, 3);
     byte bcdSeconds = Wire.read();
+    byte bcdMinutes = Wire.read();
+    byte bcdHours = Wire.read();
+
+    Serial.print(bcdSeconds >> 4);
+    Serial.print(bcdSeconds & 0x0F);
+    Serial.println();
+
     int current_sec = 10 * (bcdSeconds >> 4) + (bcdSeconds & 0x0F);
     sector = current_sec / 10;
+    printFirstLine(bcdHours, bcdMinutes, bcdSeconds);
+
+    if (digitalRead(6) == LOW && digitalRead(7) == HIGH) {
+      printFirstLine(bcdHours, bcdMinutes, bcdSeconds);
+    } else if (digitalRead(6) == HIGH && digitalRead(7) == LOW) {
+      printFirstLine(bcdHours, bcdMinutes, bcdSeconds);
+      printSecondLine(sector);
+    } else {
+      lcd.clear();
+    }
   }
 
   if (currentMillis - last_notification >= interval_notification) {
@@ -115,7 +194,7 @@ void loop() {
   Serial.print(" ");
   Serial.println(60);
   
-  digitalWrite(10, ledState);
-  digitalWrite(11, 1 - ledState);
+  digitalWrite(8, ledState);
+  digitalWrite(9, 1 - ledState);
   digitalWrite(LED_BUILTIN, led);
 }

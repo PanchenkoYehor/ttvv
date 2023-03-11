@@ -2,6 +2,9 @@
 
 #include <Wire.h>     //needed because DS3231 uses I2C Bus
 #include <RTClib.h>   //needed becuase we have ready-made functions of this librray
+#include <LiquidCrystal.h>
+const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 RTC_DS3231 rtc;     //the object rtc is created from the class RTC_DS3231
 char daysOfTheWeek[7][4] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -11,6 +14,8 @@ char daysOfTheWeek[7][4] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 void setup()
 {
   Serial.begin(9600);
+  lcd.begin(16, 2);
+
   rtc.begin();
   // Serial.println("I called setup");
   // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));//auto update from computer time
@@ -53,14 +58,30 @@ void  loop()
   Serial.print(bcdHours >> 4);
   Serial.print(bcdHours & 0x0F);
   Serial.print(':');
+  {
+    lcd.clear();
+    lcd.print(bcdHours >> 4);
+    lcd.print(bcdHours & 0x0F);
+    lcd.print(':');
+  }
 
   //show MIN--
   Serial.print(bcdMinutes >> 4);
   Serial.print(bcdMinutes & 0x0F);
   Serial.print(':');
+  {
+    lcd.print(bcdMinutes >> 4);
+    lcd.print(bcdMinutes & 0x0F);
+    lcd.print(':');
+  }
   
   //shiw SEC
   Serial.print(bcdSeconds >> 4);
   Serial.print(bcdSeconds & 0x0F);
   Serial.println();
+  {
+    lcd.print(bcdSeconds >> 4);
+    lcd.print(bcdSeconds & 0x0F);
+    // lcd.print(':');
+  }
 }
